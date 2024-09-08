@@ -165,7 +165,7 @@ multi_download <- function(urls, destfiles = NULL, resume = FALSE, progress = TR
             expected[i] <<- handle_clength(handle) + resumefrom[i]
           }
           dlspeed[i] <<- ifelse(final, 0, handle_speed(handle)[1])
-          print_progress(success, total, sum(dlspeed), sum(expected))
+          print_progress(success, total, sum(dlspeed))
         }
       }, done = function(req){
         status_codes[i] <<- req$status_code
@@ -211,7 +211,7 @@ multi_download <- function(urls, destfiles = NULL, resume = FALSE, progress = TR
   tryCatch({
     multi_run(timeout = multi_timeout, pool = pool)
     if(isTRUE(progress)){
-      print_progress(success, total, sum(dlspeed), sum(expected), TRUE)
+        print_progress(success, total, sum(dlspeed), TRUE)
     }
   }, interrupt = function(e){
     message("download interrupted")
@@ -260,16 +260,17 @@ guess_handle_filename <- function(handle){
 # Print at most 10x per second in interactive, and once per sec in batch/CI
 print_progress <- local({
   last <- 0
-  function(sucvec, total, speed, expected, finalize = FALSE){
+  function(sucvec, total, speed, finalize = FALSE){
     throttle <- ifelse(interactive(), 0.1, 5)
     now <- unclass(Sys.time())
     if(isTRUE(finalize) || now - last > throttle){
       last <<- now
       done <- sum(!is.na(sucvec))
       pending <- sum(is.na(sucvec))
-      pctstr <- if(!identical(expected, 0.0)){
-        sprintf("(%s%%)", ifelse(is.na(expected), "??", as.character(round(100 * total/expected))))
-      } else {""}
+      total_urls <- length(sucvec)
+      
+      pctstr <- sprintf("(%d%%)", round(100 * done / total_urls))
+      
       speedstr <- if(!finalize){
         sprintf(" (%s/s)", format_size(speed))
       } else {""}
